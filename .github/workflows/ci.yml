@@ -9,6 +9,7 @@ on:
 env:
   PYTHON_VERSION: "3.12"
   APP_NAME: "github-actions-homework"
+  PYTHONPATH: .
 
 jobs:
 

@@ -1,0 +1,109 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+env:
+  PYTHON_VERSION: "3.12"
+  APP_NAME: "github-actions-homework"
+
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build application
+        run: |
+          mkdir -p build
+          cp app.py build/
+          cp requirements.txt build/
+          echo "Application: $APP_NAME" > build/build-info.txt
+          echo "Build completed successfully" >> build/build-info.txt
+
+      - name: Upload build artifact
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact
+          path: build/
+
+  test:
+    name: Test
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          pytest -v
+
+      - name: Test information
+        if: success()
+        run: echo "All tests passed successfully!"
+
+  deploy:
+    name: Deploy to prod
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy application
+        run: |
+          echo "Deploying $APP_NAME to production..."
+          echo "Deployment completed successfully!"
+
+  status:
+    name: Final Status
+    needs: [build, test, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Check workflow status
+        run: |
+          echo "Build result: ${{ needs.build.result }}"
+          echo "Test result: ${{ needs.test.result }}"
+          echo "Deploy result: ${{ needs.deploy.result }}"
+
+          if [ "${{ needs.build.result }}" = "success" ] && \
+             [ "${{ needs.test.result }}" = "success" ]; then
+            echo "Workflow completed successfully!"
+          else
+            echo "Workflow failed!"
+            exit 1
+          fi
